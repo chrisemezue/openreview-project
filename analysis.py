@@ -2,7 +2,7 @@ import openreview
 #pip install openreview-py
 
 from tqdm import tqdm
-
+import json
 
 
 # # API V2
@@ -36,26 +36,24 @@ paper_invites = [i for i in invites if 'Paper' in i] # paper invites only have c
 paper_invites = list(set([i.split('-')[0].strip() for i in paper_invites]))
 paper_invites_review = [f'{i}-/Official_Review' for i in paper_invites]
 
-#breakpoint()
+paper_anon_reviews_signatures = [[f'{pi}AnonReviewer{id}' for id in range(4)]for pi in paper_invites]
+paper_anon_reviews_signatures = [a for m in paper_anon_reviews_signatures for a in m]
+breakpoint()
 
+
+all_reviews = guest_client.get_all_notes(signatures = paper_anon_reviews_signatures)
 review_dict= []
 
 for p_inv in tqdm(paper_invites,desc='Parsing reviews'):
 
     # There should be 3 reviews per forum.
     reviews = openreview.tools.iterget_notes(guest_client, invitation=p_inv)
+    reviews2 = openreview.tools.iterget_notes(guest_client, content={'writers' : ['ICLR.cc/2021/Conference']})
+
+    
     for review in reviews:
         review_sample = {}
-
-        """
-        title
-        abstract
-        review0
-        rating0
-        review1
-        rating1
-        decision
-        """
+        
         breakpoint()
         review_sample['forum'] = review.forum
 
@@ -105,6 +103,7 @@ title
 abstract
 review0
 rating0
+confidence
 review1
 rating1
 decision
