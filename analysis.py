@@ -1,7 +1,7 @@
 import openreview
 #pip install openreview-py
 
-
+from tqdm import tqdm
 
 
 
@@ -31,14 +31,33 @@ print('getting metadata...')
 invitations = openreview.tools.iterget_invitations(guest_client,regex=f'{venue_id}/')
 invites = [inv.id for inv in invitations]
 
-breakpoint()
+# get all papers
+paper_invites = [i for i in invites if 'Paper' in i] # paper invites only have comment and decision
+paper_invites = list(set([i.split('-')[0].strip() for i in paper_invites]))
+paper_invites_review = [f'{i}-/Official_Review' for i in paper_invites]
 
-# There should be 3 reviews per forum.
-reviews = openreview.tools.iterget_notes(guest_client, invitation=f"ICLR.cc/2022/Conference/Paper931/-/Official_Comment")
-reviews_by_forum = {}
-for review in reviews:
-    breakpoint()
-    reviews_by_forum[review.forum].append(review)
+#breakpoint()
+
+review_dict= []
+
+for p_inv in tqdm(paper_invites,desc='Parsing reviews'):
+
+    # There should be 3 reviews per forum.
+    reviews = openreview.tools.iterget_notes(guest_client, invitation=p_inv)
+    for review in reviews:
+        review_sample = {}
+
+        """
+        title
+        abstract
+        review0
+        rating0
+        review1
+        rating1
+        decision
+        """
+        breakpoint()
+        review_sample['forum'] = review.forum
 
 # # API V1
 # client = openreview.Client(
@@ -78,3 +97,15 @@ for review in reviews:
 #     reviews = reviews + [openreview.Note.from_json(reply) for reply in submission.details["directReplies"] if reply["invitation"].endswith("Official_Review")]
 
 breakpoint()
+
+
+
+"""
+title
+abstract
+review0
+rating0
+review1
+rating1
+decision
+"""
