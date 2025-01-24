@@ -3,14 +3,9 @@ import openreview
 
 from tqdm import tqdm
 import json
+import time
 
 
-# # API V2
-# client = openreview.api.OpenReviewClient(
-#     baseurl='https://api2.openreview.net',
-#     username='',
-#     password=''
-# )
 
 # ## get all venues
 # venues = client.get_group(id='venues').members
@@ -18,14 +13,15 @@ import json
 # iclr = [v for v in venues if 'ICLR' in v]
 # iclr_conf = [v for v in iclr if 'conference' in v]
 #breakpoint()
+
 venue_id = 'ICLR.cc/2021/Conference'
 
 # from https://colab.research.google.com/drive/1vXXNxn8lnO3j1dgoidjybbKIN0DW0Bt2#scrollTo=_qmSij2me5bX
 
 guest_client = openreview.Client(baseurl='https://api.openreview.net')
-submissions = openreview.tools.iterget_notes(
-        guest_client, invitation=f'{venue_id}/-/Blind_Submission')
-submissions_by_forum = {n.forum: n for n in submissions}
+# submissions = openreview.tools.iterget_notes(
+#         guest_client, invitation=f'{venue_id}/-/Blind_Submission')
+# submissions_by_forum = {n.forum: n for n in submissions}
 print('getting metadata...')
 
 invitations = openreview.tools.iterget_invitations(guest_client,regex=f'{venue_id}/')
@@ -36,28 +32,40 @@ paper_invites = [i for i in invites if 'Paper' in i] # paper invites only have c
 paper_invites = list(set([i.split('-')[0].strip() for i in paper_invites]))
 paper_invites_review = [f'{i}-/Official_Review' for i in paper_invites]
 
-paper_anon_reviews_signatures = [[f'{pi}AnonReviewer{id}' for id in range(4)]for pi in paper_invites]
-paper_anon_reviews_signatures = [a for m in paper_anon_reviews_signatures for a in m]
-breakpoint()
 
-
-all_reviews = guest_client.get_all_notes(signatures = paper_anon_reviews_signatures)
 review_dict= []
 
-for p_inv in tqdm(paper_invites,desc='Parsing reviews'):
-
+for p_inv in tqdm(paper_invites_review[:10],desc='Parsing reviews'):
+    #breakpoint()
     # There should be 3 reviews per forum.
-    reviews = openreview.tools.iterget_notes(guest_client, invitation=p_inv)
-    reviews2 = openreview.tools.iterget_notes(guest_client, content={'writers' : ['ICLR.cc/2021/Conference']})
+    reviews = list(openreview.tools.iterget_notes(guest_client, invitation=p_inv))
+    if reviews!=[]:
 
-    
-    for review in reviews:
         review_sample = {}
-        
-        breakpoint()
-        review_sample['forum'] = review.forum
+        review_sample['forum'] = reviews[0].forum
+        review_sample['title'] = reviews[0].content['title']
+        #review_sample['abstract'] = reviews[0].content['abstract']
 
+        review_sample['reviews'] = {}
+
+        for i, review in enumerate(reviews):
+            
+            review_content = review.content
+            review_sample['reviews'][f'review{i}'] = review_content['review']
+            review_sample['reviews'][f'rating{i}'] = review_content['rating']
+            review_sample['reviews'][f'confidence{i}'] = review_content['confidence']
+
+        review_dict.append(review_sample)
+        time.sleep(3)
+    
+
+with open(f'reviews_iclr_2021.json','w+') as f:
+    json.dump(review_dict,f)
+
+breakpoint()
 # # API V1
+
+
 # client = openreview.Client(
 #     baseurl='https://api.openreview.net',
 #     username=<your username>,
@@ -103,7 +111,6 @@ title
 abstract
 review0
 rating0
-confidence
 review1
 rating1
 decision
