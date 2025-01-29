@@ -1,117 +1,54 @@
 import openreview
-#pip install openreview-py
-
-from tqdm import tqdm
 import json
-import time
 
+# Initialize the OpenReview client
+client = openreview.Client(baseurl='https://api.openreview.net')
 
+# Define the ICLR 2021 conference ID
+conference_id = 'ICLR.cc/2021/Conference'
 
-# ## get all venues
-# venues = client.get_group(id='venues').members
-# #venuesl = [v.lower() for v in venues]
-# iclr = [v for v in venues if 'ICLR' in v]
-# iclr_conf = [v for v in iclr if 'conference' in v]
-#breakpoint()
+# Retrieve all submissions for ICLR 2021 with their direct replies
+submissions = client.get_all_notes(
+    invitation=f'{conference_id}/-/Blind_Submission',
+    details='directReplies'
+)
 
-venue_id = 'ICLR.cc/2021/Conference'
+# Initialize a list to store the processed data
+processed_data = []
 
-# from https://colab.research.google.com/drive/1vXXNxn8lnO3j1dgoidjybbKIN0DW0Bt2#scrollTo=_qmSij2me5bX
+# Iterate through each submission to extract required information
+for submission in submissions:
+    # Initialize a dictionary to store submission details
+    submission_data = {
+        'title': submission.content.get('title', 'No Title'),
+        'abstract': submission.content.get('abstract', 'No Abstract')
+    }
 
-guest_client = openreview.Client(baseurl='https://api.openreview.net')
-# submissions = openreview.tools.iterget_notes(
-#         guest_client, invitation=f'{venue_id}/-/Blind_Submission')
-# submissions_by_forum = {n.forum: n for n in submissions}
-print('getting metadata...')
+    # Initialize counters for reviews and ratings
+    review_counter = 0
 
-invitations = openreview.tools.iterget_invitations(guest_client,regex=f'{venue_id}/')
-invites = [inv.id for inv in invitations]
+    # Iterate through direct replies to find reviews and decisions
+    for reply in submission.details['directReplies']:
+        invitation = reply.get('invitation', '')
+        if invitation.endswith('Official_Review'):
+            # Extract review content and rating
+            review_content = reply['content'].get('review', 'No Review Content')
+            rating = reply['content'].get('rating', 'No Rating')
 
-# get all papers
-paper_invites = [i for i in invites if 'Paper' in i] # paper invites only have comment and decision
-paper_invites = list(set([i.split('-')[0].strip() for i in paper_invites]))
-paper_invites_review = [f'{i}-/Official_Review' for i in paper_invites]
+            # Add review and rating to the submission data
+            submission_data[f'review{review_counter}'] = review_content
+            submission_data[f'rating{review_counter}'] = rating
+            review_counter += 1
+        elif invitation.endswith('Decision'):
+            # Extract decision
+            decision = reply['content'].get('decision', 'No Decision')
+            submission_data['decision'] = decision
 
+    # Append the processed submission data to the list
+    processed_data.append(submission_data)
 
-review_dict= []
+# Save the processed data to a JSON file
+with open('iclr2021_reviews.json', 'w') as json_file:
+    json.dump(processed_data, json_file, indent=2)
 
-for p_inv in tqdm(paper_invites_review[:10],desc='Parsing reviews'):
-    #breakpoint()
-    # There should be 3 reviews per forum.
-    reviews = list(openreview.tools.iterget_notes(guest_client, invitation=p_inv))
-    if reviews!=[]:
-
-        review_sample = {}
-        review_sample['forum'] = reviews[0].forum
-        review_sample['title'] = reviews[0].content['title']
-        #review_sample['abstract'] = reviews[0].content['abstract']
-
-        review_sample['reviews'] = {}
-
-        for i, review in enumerate(reviews):
-            
-            review_content = review.content
-            review_sample['reviews'][f'review{i}'] = review_content['review']
-            review_sample['reviews'][f'rating{i}'] = review_content['rating']
-            review_sample['reviews'][f'confidence{i}'] = review_content['confidence']
-
-        review_dict.append(review_sample)
-        time.sleep(3)
-    
-
-with open(f'reviews_iclr_2021.json','w+') as f:
-    json.dump(review_dict,f)
-
-breakpoint()
-# # API V1
-
-
-# client = openreview.Client(
-#     baseurl='https://api.openreview.net',
-#     username=<your username>,
-#     password=<your password>
-# )
-
-
-
-# let's use "iclr.cc/2023/conference"
-
-
-## how to get all reviews
-# https://docs.openreview.net/how-to-guides/data-retrieval-and-modification/how-to-get-all-reviews#venues-using-api-v2
-
-
-
-# ## with V2
-# venue_group = client.get_group(venue_id)
-# submission_name = venue_group.content['submission_name']['value']
-# submissions = client.get_all_notes(invitation=f'{venue_id}/-/{submission_name}', details='replies')
-
-# review_name = venue_group.content['review_name']['value']
-
-# reviews=[openreview.api.Note.from_json(reply) for s in submissions for reply in s.details['replies'] if f'{venue_id}/{submission_name}{s.number}/-/{review_name}' in reply['invitations']]
-
-
-# ## with V1
-# submissions = client.get_all_notes(
-#     invitation=venue_id,
-#     details='directReplies'
-# )
-
-# reviews = [] 
-# for submission in submissions:
-#     reviews = reviews + [openreview.Note.from_json(reply) for reply in submission.details["directReplies"] if reply["invitation"].endswith("Official_Review")]
-
-breakpoint()
-
-
-
-"""
-title
-abstract
-review0
-rating0
-review1
-rating1
-decision
-"""
+print(f'Total submissions processed: {len(processed_data)}')
